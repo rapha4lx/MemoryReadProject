@@ -4,19 +4,26 @@ using PID = DWORD;
 using PROCESS = HANDLE;
 
 struct SelectedProcess {
-    PID pid{ NULL };
-    PROCESS process {nullptr};
+	PID pid{ NULL };
+	PROCESS process{ nullptr };
+
+
+	~SelectedProcess() {
+		if (this->process != nullptr)
+			CloseHandle(this->process);
+	}
 };
-
 namespace Process {
+	void EnableDebugPriv();
 
-    void EnableDebugPriv();
+	void GetAllProcess();
+	inline std::map<std::wstring, PID> currentsProcess;
 
-    inline std::map<std::wstring, PID> currentsProcess;
+	inline SelectedProcess selectedProcess{ NULL };
 
-    inline SelectedProcess selectedProcess{ NULL };
-
-    void GetAllProcess();
+	inline std::map<int, MEMORY_BASIC_INFORMATION> currentMemoryModulesInfo;
+	void GetModules();
+	void DrawModules(int &currentDrawModuleIndex);
 }
 
 //void refindBytePatternInProcessMemory(PROCESS process, void* pattern, size_t patternLen, std::vector<void*>& found)
