@@ -1,56 +1,136 @@
 #include "../Include/global.h"
 
 
+char ProcessName[128];
+int currentDrawModuleIndex{ 0 };
+
+
 void menu() {
 	if (ImGui::BeginTabBar("##open selector")) {
 
 		if (ImGui::BeginTabItem("Select Process"))
 		{
-			if (ImGui::Button("Update Process List")) {
-				Process::GetAllProcess();
-			}
+			ImGui::InputText("Process Name", ProcessName, IM_ARRAYSIZE(ProcessName));
+			/*if (ImGui::Button("Update Process List")) {
+			}*/
+			Process::GetAllProcess();
 
 			std::map<std::wstring, PID>::iterator it = Process::currentsProcess.begin();
 
 			ImGui::BeginChild("Process", ImVec2(500, 150));
 			{
-				while (it != Process::currentsProcess.end()) {
-					if (it->second == Process::selectedProcess.pid) {
-						ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0, 1, 0, 1));
+				int ProcessNameCount = 0;
+				for (int i = 0; i < ProcessName[i] != '\0'; i++)
+				{
+					++ProcessNameCount;
+				}
+
+				bool print = false;
+				for (; it != Process::currentsProcess.end();) {
+					if (ProcessNameCount > 0) {
+						for (int i = 0; i < ProcessNameCount;) {
+							try
+							{
+								if (it->first[i] == ProcessName[i]) {
+									++i;
+								}
+								else
+								{
+									break;
+								}
+								if (i == ProcessNameCount) {
+									print = true;
+								}
+							}
+							catch (const std::exception&)
+							{
+								print = false;
+								break;
+							}
+						}
+
+						if (print) {
+							if (it->second == Process::selectedProcess.pid) {
+								ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0, 1, 0, 1));
+							}
+							else
+							{
+								ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 0, 0, 1));
+							}
+
+							ImGui::Text("ProcessName: %ls / PID: %d", it->first.c_str(), it->second);
+							if (ImGui::IsItemClicked()) {
+								Process::selectedProcess.pid = it->second;
+								Process::selectedProcess.process = OpenProcess(PROCESS_ALL_ACCESS, 0, Process::selectedProcess.pid);
+								Process::GetModules();
+							}
+							ImGui::PopStyleColor();
+							print = false;
+						}
+						++it;
 					}
 					else
 					{
-						ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 0, 0, 1));
+						if (it->second == Process::selectedProcess.pid) {
+							ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0, 1, 0, 1));
+						}
+						else
+						{
+							ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 0, 0, 1));
+						}
+
+						ImGui::Text("ProcessName: %ls / PID: %d", it->first.c_str(), it->second);
+						if (ImGui::IsItemClicked()) {
+							Process::selectedProcess.pid = it->second;
+							Process::selectedProcess.process = OpenProcess(PROCESS_ALL_ACCESS, 0, Process::selectedProcess.pid);
+							Process::GetModules();
+						}
+						ImGui::PopStyleColor();
+						++it;
 					}
 
-					ImGui::Text("ProcessName: %ls / PID: %d", it->first.c_str(), it->second);
-
-					ImGui::PopStyleColor();
-
-					if (ImGui::IsItemClicked()) {
-						Process::selectedProcess.pid = it->second;
-					}
-					++it;
 				}
+
 			}ImGui::EndChild();
 
 			ImGui::EndTabItem();
 		}
 
-		if(ImGui::BeginTabItem("Memory")) {
-			if (Process::selectedProcess.pid != NULL) {
-				
+		if (Process::selectedProcess.pid) {
+			//Memory
+			if (ImGui::BeginTabItem("Memory")) {
+				if (ImGui::Button("Update Modules")) {
+					Process::GetModules();
+				}
+
+				if (Process::selectedProcess.pid != NULL) {
+					ImGui::BeginChild("Get Modules", ImVec2(700, 300));
+
+					/*if (currentDrawModuleIndex < Process::currentMemoryModulesInfo.size()) {
+						for (int i = currentDrawModuleIndex, count = 0;
+							i < Process::currentMemoryModulesInfo.size() && count < 20;
+							i++, count++)
+						{
+							Process::DrawModules(count);
+						}
+					}*/
+
+					for (int i = 0; i < Process::currentMemoryModulesInfo.size(); i++) {
+						Process::DrawModules(i);
+					}
+
+					ImGui::EndChild();
+				}
+
+				ImGui::EndTabItem();
 			}
 
-			ImGui::EndTabItem();
+
 		}
 
+
 		ImGui::EndTabBar();
-
-
-
-
-	}
+	} //endTabNar
 }
 
 void startGui() {
@@ -172,6 +252,8 @@ void startGui() {
 	UI::CleanupDeviceD3D();
 	::DestroyWindow(hwnd);
 	::UnregisterClassW(wc.lpszClassName, wc.hInstance);
+
+	//Process::selectedProcess.Destroy();
 }
 
 
