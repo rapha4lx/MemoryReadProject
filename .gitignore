@@ -361,3 +361,8 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+/Build/
+#/Build/MemoryReadProject.exe
+/MemoryReadProject/Include/
+/MemoryReadProject/imgui.ini
