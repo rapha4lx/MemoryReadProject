@@ -12,6 +12,15 @@ struct SelectedProcess {
 		if (this->process != nullptr)
 			CloseHandle(this->process);
 	}
+
+	void openProcess();
+
+	template <typename T>
+	void ReadMemory(void* start, size_t size, T const &buff);
+
+	template <typename T>
+	void WriteMemory(void* start, size_t size, T const &buff);
+
 };
 namespace Process {
 	void EnableDebugPriv();
@@ -21,9 +30,20 @@ namespace Process {
 
 	inline SelectedProcess selectedProcess{ NULL };
 
+	//Memory Pages Info
 	inline std::map<int, MEMORY_BASIC_INFORMATION> currentMemoryModulesInfo;
+	void GetMemoryPages();
+	void DrawMemoryPages(const int &currentDrawPageIndex);
+
+	//Modules Info
+	inline std::map<int, MODULEENTRY32W> currentProcessModules;
 	void GetModules();
-	void DrawModules(int &currentDrawModuleIndex);
+	void DrawModules(const int& currentDrawModuleIndex);
+
+	//Finded Memory
+	template <typename T>
+	inline std::map<int, T> findedCurrentProcessMemory;
+
 }
 
 //void refindBytePatternInProcessMemory(PROCESS process, void* pattern, size_t patternLen, std::vector<void*>& found)
