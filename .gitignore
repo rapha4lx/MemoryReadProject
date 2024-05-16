@@ -363,6 +363,4 @@ MigrationBackup/
 FodyWeavers.xsd
 
 /Build/
-#/Build/MemoryReadProject.exe
-/MemoryReadProject/Include/
-/MemoryReadProject/imgui.ini
+*.ini
