@@ -5,14 +5,36 @@ char ProcessName[128];
 int currentDrawModuleIndex{ 0 };
 
 
+int FindValueIndex{ 0 };
+const char* FindValueTypes[]
+{
+	"int", "float"
+};
+
+char FindValue[60];
+
+//template <typename T>
+//GetType(const char* type) {
+//	switch (type)
+//	{
+//	case "int":
+//		return int;
+//
+//	case "float":
+//		return float;
+//
+//	default:
+//		break;
+//	}
+//}
+
 void menu() {
 	if (ImGui::BeginTabBar("##open selector")) {
 
 		if (ImGui::BeginTabItem("Select Process"))
 		{
 			ImGui::InputText("Process Name", ProcessName, IM_ARRAYSIZE(ProcessName));
-			/*if (ImGui::Button("Update Process List")) {
-			}*/
+
 			Process::GetAllProcess();
 
 			std::map<std::wstring, PID>::iterator it = Process::currentsProcess.begin();
@@ -61,7 +83,8 @@ void menu() {
 							ImGui::Text("ProcessName: %ls / PID: %d", it->first.c_str(), it->second);
 							if (ImGui::IsItemClicked()) {
 								Process::selectedProcess.pid = it->second;
-								Process::selectedProcess.process = OpenProcess(PROCESS_ALL_ACCESS, 0, Process::selectedProcess.pid);
+								Process::selectedProcess.openProcess();
+								Process::GetMemoryPages();
 								Process::GetModules();
 							}
 							ImGui::PopStyleColor();
@@ -82,7 +105,8 @@ void menu() {
 						ImGui::Text("ProcessName: %ls / PID: %d", it->first.c_str(), it->second);
 						if (ImGui::IsItemClicked()) {
 							Process::selectedProcess.pid = it->second;
-							Process::selectedProcess.process = OpenProcess(PROCESS_ALL_ACCESS, 0, Process::selectedProcess.pid);
+							Process::selectedProcess.openProcess();
+							Process::GetMemoryPages();
 							Process::GetModules();
 						}
 						ImGui::PopStyleColor();
@@ -98,34 +122,69 @@ void menu() {
 
 		if (Process::selectedProcess.pid) {
 			//Memory
-			if (ImGui::BeginTabItem("Memory")) {
-				if (ImGui::Button("Update Modules")) {
-					Process::GetModules();
+			if (ImGui::BeginTabItem("Memory Page Info")) {
+				if (ImGui::Button("Update Pages")) {
+					Process::GetMemoryPages();
 				}
 
-				if (Process::selectedProcess.pid != NULL) {
-					ImGui::BeginChild("Get Modules", ImVec2(700, 300));
-
-					/*if (currentDrawModuleIndex < Process::currentMemoryModulesInfo.size()) {
-						for (int i = currentDrawModuleIndex, count = 0;
-							i < Process::currentMemoryModulesInfo.size() && count < 20;
+				ImGui::Text("Memory Pages");
+				ImGui::BeginChild("Memory Page", ImVec2(700, 300));
+				{
+					if (currentDrawModuleIndex * 30 < Process::currentMemoryModulesInfo.size()) {
+						for (int i = currentDrawModuleIndex * 30, count = 0;
+							i < Process::currentMemoryModulesInfo.size() && count < 30;
 							i++, count++)
 						{
-							Process::DrawModules(count);
+							Process::DrawMemoryPages(i);
 						}
-					}*/
-
-					for (int i = 0; i < Process::currentMemoryModulesInfo.size(); i++) {
-						Process::DrawModules(i);
 					}
+				}ImGui::EndChild();//Get modules end
 
-					ImGui::EndChild();
+				//Memory Pages
+				ImGui::BeginChild("Memory Pages Count", ImVec2(700, 50), 0, ImGuiWindowFlags_HorizontalScrollbar);
+				{
+					for (int i = 0; i < Process::currentMemoryModulesInfo.size() / 30; i++)
+					{
+						char buffer[12];
+#pragma warning(suppress: 4996)
+						std::sprintf(buffer, "%d", i);
+						if (ImGui::Button(buffer, ImVec2(50, 30))) {
+							currentDrawModuleIndex = i;
+						}
+						ImGui::SameLine();
+					}
+				}ImGui::EndChild();
+
+
+				ImGui::EndTabItem(); //End Memory tab
+			}
+
+			if (ImGui::BeginTabItem("Modules Info")) {
+
+				for (int i = 0; i < Process::currentProcessModules.size(); i++)
+				{
+					Process::DrawModules(i);
 				}
-
+				
 				ImGui::EndTabItem();
 			}
 
+			if (ImGui::BeginTabItem("Find Value")) {
+				ImGui::InputText("Find Value", FindValue, IM_ARRAYSIZE(FindValue));
+				
+				ImGui::Combo("Type", &FindValueIndex, FindValueTypes, 2);
+				
 
+				/*if (Process::findedCurrentProcessMemory<GetType("int")>) {
+
+				}*/
+
+
+
+
+
+				ImGui::EndTabItem();
+			}
 		}
 
 
