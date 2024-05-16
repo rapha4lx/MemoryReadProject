@@ -1,6 +1,26 @@
 #include "../Include/global.h"
 
 
+void SelectedProcess::openProcess() {
+	this->process = OpenProcess(
+		PROCESS_VM_READ | PROCESS_QUERY_INFORMATION |
+		PROCESS_VM_WRITE | PROCESS_VM_OPERATION
+		, 0, this->pid);
+
+	if ((this->process == INVALID_HANDLE_VALUE) || (this->process == 0)) {
+		this->process = 0;
+		this->pid = 0;
+	}
+}
+
+template <typename T>
+void SelectedProcess::ReadMemory(void* start, size_t size, T const& buff) {
+	if (ReadProcessMemory(this->process, start, buff, size, nullptr)) {
+		return buff;
+	}
+	return buff;
+}
+
 void Process::EnableDebugPriv()
 {
 	HANDLE hToken;
@@ -54,7 +74,8 @@ unsigned long show_module(MEMORY_BASIC_INFORMATION info, int& count) {
 	return usage;
 }
 
-void Process::GetModules() {
+//GetMemoryPages
+void Process::GetMemoryPages() {
 	Process::currentMemoryModulesInfo.clear();
 
 	unsigned long usage = 0;
@@ -73,21 +94,26 @@ void Process::GetModules() {
 	}
 }
 
-void Process::DrawModules(int& currentDrawModuleIndex) {
+void Process::DrawMemoryPages(const int& currentDrawPageIndex) {
 	if (!Process::currentMemoryModulesInfo.size()) {
 		return;
 	}
 
-	ImGui::Text("BaseAddress: %p RegionSize: (%zu)",
-		Process::currentMemoryModulesInfo[currentDrawModuleIndex].BaseAddress,
-		Process::currentMemoryModulesInfo[currentDrawModuleIndex].RegionSize / 1024);
+	SYSTEM_INFO sSysInfo = { };
+	GetSystemInfo(&sSysInfo);
+
+	ImGui::Text("BaseAddress: %p RegionSize: (%zu) pages count: %d",
+		Process::currentMemoryModulesInfo[currentDrawPageIndex].BaseAddress,
+		Process::currentMemoryModulesInfo[currentDrawPageIndex].RegionSize,
+		//Process::currentMemoryModulesInfo[currentDrawPageIndex].RegionSize / 1024,
+		Process::currentMemoryModulesInfo[currentDrawPageIndex].RegionSize / sSysInfo.dwPageSize);
 
 	if (ImGui::IsItemClicked()) {
 		OpenClipboard(NULL);
 		EmptyClipboard();
 
 		char* str = (char*)malloc(20 * sizeof(char));
-		snprintf(str, 20, "%p", Process::currentMemoryModulesInfo[currentDrawModuleIndex].BaseAddress);
+		snprintf(str, 20, "%p", Process::currentMemoryModulesInfo[currentDrawPageIndex].BaseAddress);
 
 		HGLOBAL hg = GlobalAlloc(GMEM_MOVEABLE, strlen(str) + 1);
 
@@ -105,7 +131,7 @@ void Process::DrawModules(int& currentDrawModuleIndex) {
 
 	ImGui::SameLine();
 
-	switch (Process::currentMemoryModulesInfo[currentDrawModuleIndex].State) {
+	switch (Process::currentMemoryModulesInfo[currentDrawPageIndex].State) {
 	case MEM_COMMIT:
 		ImGui::Text("Committed");
 		break;
@@ -119,7 +145,7 @@ void Process::DrawModules(int& currentDrawModuleIndex) {
 
 	ImGui::SameLine();
 
-	switch (Process::currentMemoryModulesInfo[currentDrawModuleIndex].Type) {
+	switch (Process::currentMemoryModulesInfo[currentDrawPageIndex].Type) {
 	case MEM_IMAGE:
 		ImGui::Text("Code Module");
 		break;
@@ -134,14 +160,14 @@ void Process::DrawModules(int& currentDrawModuleIndex) {
 
 	int guard = 0, nocache = 0;
 
-	if (Process::currentMemoryModulesInfo[currentDrawModuleIndex].AllocationProtect & PAGE_NOCACHE)
+	if (Process::currentMemoryModulesInfo[currentDrawPageIndex].AllocationProtect & PAGE_NOCACHE)
 		nocache = 1;
-	if (Process::currentMemoryModulesInfo[currentDrawModuleIndex].AllocationProtect & PAGE_GUARD)
+	if (Process::currentMemoryModulesInfo[currentDrawPageIndex].AllocationProtect & PAGE_GUARD)
 		guard = 1;
 
-	Process::currentMemoryModulesInfo[currentDrawModuleIndex].AllocationProtect &= ~(PAGE_GUARD | PAGE_NOCACHE);
+	Process::currentMemoryModulesInfo[currentDrawPageIndex].AllocationProtect &= ~(PAGE_GUARD | PAGE_NOCACHE);
 
-	switch (Process::currentMemoryModulesInfo[currentDrawModuleIndex].AllocationProtect) {
+	switch (Process::currentMemoryModulesInfo[currentDrawPageIndex].AllocationProtect) {
 	case PAGE_READONLY:
 		ImGui::Text("Read Only");
 		break;
@@ -172,7 +198,62 @@ void Process::DrawModules(int& currentDrawModuleIndex) {
 	if (nocache)
 		ImGui::Text("non-cacheable");
 
-	ImGui::Text("\n");
+	ImGui::SameLine();
+
+	int data = 0;
+
+	try
+	{
 
 
+
+
+		/*char bufferValue[256];
+		std::sprintf(bufferValue, "%s");*/
+
+		ImGui::Text("");
+		ImGui::Text("\n");
+	}
+	catch (const std::exception&)
+	{
+		ImGui::Text("\n");
+	}
+}
+
+//Get Modules
+void Process::GetModules() {
+	HANDLE hModuleSnap = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, Process::selectedProcess.pid);
+	MODULEENTRY32 me32 = MODULEENTRY32();
+	me32.dwSize = sizeof(MODULEENTRY32);
+
+	if (hModuleSnap == INVALID_HANDLE_VALUE || hModuleSnap == 0) {
+		CloseHandle(hModuleSnap);
+		return;
+	}
+
+	int moduleCount{ 0 };
+
+	if (Module32First(hModuleSnap, &me32) == TRUE) {
+		Process::currentProcessModules[moduleCount] = me32;
+		++moduleCount;
+	}
+	else
+	{
+		CloseHandle(hModuleSnap);
+		return;
+	}
+
+
+	while (Module32Next(hModuleSnap, &me32) == TRUE) {
+		Process::currentProcessModules[moduleCount] = me32;
+		++moduleCount;
+	}
+}
+
+void Process::DrawModules(const int& currentDrawModuleIndex) {
+	ImGui::Text("ModuleName: %ls \\ ModBaseAddr: %p \\ ModBaseSize: %lu ",
+		Process::currentProcessModules[currentDrawModuleIndex].szModule,
+		Process::currentProcessModules[currentDrawModuleIndex].modBaseAddr,
+		Process::currentProcessModules[currentDrawModuleIndex].modBaseSize
+	);
 }
