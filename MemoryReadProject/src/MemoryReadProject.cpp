@@ -1,56 +1,195 @@
 #include "../Include/global.h"
 
 
+char ProcessName[128];
+int currentDrawModuleIndex{ 0 };
+
+
+int FindValueIndex{ 0 };
+const char* FindValueTypes[]
+{
+	"int", "float"
+};
+
+char FindValue[60];
+
+//template <typename T>
+//GetType(const char* type) {
+//	switch (type)
+//	{
+//	case "int":
+//		return int;
+//
+//	case "float":
+//		return float;
+//
+//	default:
+//		break;
+//	}
+//}
+
 void menu() {
 	if (ImGui::BeginTabBar("##open selector")) {
 
 		if (ImGui::BeginTabItem("Select Process"))
 		{
-			if (ImGui::Button("Update Process List")) {
-				Process::GetAllProcess();
-			}
+			ImGui::InputText("Process Name", ProcessName, IM_ARRAYSIZE(ProcessName));
+
+			Process::GetAllProcess();
 
 			std::map<std::wstring, PID>::iterator it = Process::currentsProcess.begin();
 
 			ImGui::BeginChild("Process", ImVec2(500, 150));
 			{
-				while (it != Process::currentsProcess.end()) {
-					if (it->second == Process::selectedProcess.pid) {
-						ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0, 1, 0, 1));
+				int ProcessNameCount = 0;
+				for (int i = 0; i < ProcessName[i] != '\0'; i++)
+				{
+					++ProcessNameCount;
+				}
+
+				bool print = false;
+				for (; it != Process::currentsProcess.end();) {
+					if (ProcessNameCount > 0) {
+						for (int i = 0; i < ProcessNameCount;) {
+							try
+							{
+								if (it->first[i] == ProcessName[i]) {
+									++i;
+								}
+								else
+								{
+									break;
+								}
+								if (i == ProcessNameCount) {
+									print = true;
+								}
+							}
+							catch (const std::exception&)
+							{
+								print = false;
+								break;
+							}
+						}
+
+						if (print) {
+							if (it->second == Process::selectedProcess.pid) {
+								ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0, 1, 0, 1));
+							}
+							else
+							{
+								ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 0, 0, 1));
+							}
+
+							ImGui::Text("ProcessName: %ls / PID: %d", it->first.c_str(), it->second);
+							if (ImGui::IsItemClicked()) {
+								Process::selectedProcess.pid = it->second;
+								Process::selectedProcess.openProcess();
+								Process::GetMemoryPages();
+								Process::GetModules();
+							}
+							ImGui::PopStyleColor();
+							print = false;
+						}
+						++it;
 					}
 					else
 					{
-						ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 0, 0, 1));
+						if (it->second == Process::selectedProcess.pid) {
+							ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0, 1, 0, 1));
+						}
+						else
+						{
+							ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 0, 0, 1));
+						}
+
+						ImGui::Text("ProcessName: %ls / PID: %d", it->first.c_str(), it->second);
+						if (ImGui::IsItemClicked()) {
+							Process::selectedProcess.pid = it->second;
+							Process::selectedProcess.openProcess();
+							Process::GetMemoryPages();
+							Process::GetModules();
+						}
+						ImGui::PopStyleColor();
+						++it;
 					}
 
-					ImGui::Text("ProcessName: %ls / PID: %d", it->first.c_str(), it->second);
-
-					ImGui::PopStyleColor();
-
-					if (ImGui::IsItemClicked()) {
-						Process::selectedProcess.pid = it->second;
-					}
-					++it;
 				}
+
 			}ImGui::EndChild();
 
 			ImGui::EndTabItem();
 		}
 
-		if(ImGui::BeginTabItem("Memory")) {
-			if (Process::selectedProcess.pid != NULL) {
-				
+		if (Process::selectedProcess.pid) {
+			//Memory
+			if (ImGui::BeginTabItem("Memory Page Info")) {
+				if (ImGui::Button("Update Pages")) {
+					Process::GetMemoryPages();
+				}
+
+				ImGui::Text("Memory Pages");
+				ImGui::BeginChild("Memory Page", ImVec2(700, 300));
+				{
+					if (currentDrawModuleIndex * 30 < Process::currentMemoryModulesInfo.size()) {
+						for (int i = currentDrawModuleIndex * 30, count = 0;
+							i < Process::currentMemoryModulesInfo.size() && count < 30;
+							i++, count++)
+						{
+							Process::DrawMemoryPages(i);
+						}
+					}
+				}ImGui::EndChild();//Get modules end
+
+				//Memory Pages
+				ImGui::BeginChild("Memory Pages Count", ImVec2(700, 50), 0, ImGuiWindowFlags_HorizontalScrollbar);
+				{
+					for (int i = 0; i < Process::currentMemoryModulesInfo.size() / 30; i++)
+					{
+						char buffer[12];
+#pragma warning(suppress: 4996)
+						std::sprintf(buffer, "%d", i);
+						if (ImGui::Button(buffer, ImVec2(50, 30))) {
+							currentDrawModuleIndex = i;
+						}
+						ImGui::SameLine();
+					}
+				}ImGui::EndChild();
+
+
+				ImGui::EndTabItem(); //End Memory tab
 			}
 
-			ImGui::EndTabItem();
+			if (ImGui::BeginTabItem("Modules Info")) {
+
+				for (int i = 0; i < Process::currentProcessModules.size(); i++)
+				{
+					Process::DrawModules(i);
+				}
+				
+				ImGui::EndTabItem();
+			}
+
+			if (ImGui::BeginTabItem("Find Value")) {
+				ImGui::InputText("Find Value", FindValue, IM_ARRAYSIZE(FindValue));
+				
+				ImGui::Combo("Type", &FindValueIndex, FindValueTypes, 2);
+				
+
+				/*if (Process::findedCurrentProcessMemory<GetType("int")>) {
+
+				}*/
+
+
+
+
+
+				ImGui::EndTabItem();
+			}
 		}
 
+
 		ImGui::EndTabBar();
-
-
-
-
-	}
+	} //endTabNar
 }
 
 void startGui() {
@@ -172,6 +311,8 @@ void startGui() {
 	UI::CleanupDeviceD3D();
 	::DestroyWindow(hwnd);
 	::UnregisterClassW(wc.lpszClassName, wc.hInstance);
+
+	//Process::selectedProcess.Destroy();
 }
 
 
